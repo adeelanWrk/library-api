@@ -1,5 +1,5 @@
-
 using Library.API.Data;
+using Library.API.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,29 +11,51 @@ namespace Library.API.Features.Books
     public class GetBooksWithAuthorsPagedHandler : IRequestHandler<GetBooksWithAuthorsPagedQuery, List<BookWithAuthorsDto>>
     {
         private readonly LibraryDbContext _db;
+        private static readonly HashSet<string> ValidSortByColumns = new()
+        {
+            "Title", "Publisher", "Price", "AuthorFirstName", "AuthorLastName"
+        };
+        private static readonly HashSet<string> ValidSortDirections = new()
+        {
+            "ASC", "DESC"
+        };
+
         public GetBooksWithAuthorsPagedHandler(LibraryDbContext db) => _db = db;
 
         public async Task<List<BookWithAuthorsDto>> Handle(GetBooksWithAuthorsPagedQuery request, CancellationToken cancellationToken)
         {
-            IQueryable<Book> query = _db.Books.Include(b => b.BookAuthors).ThenInclude(ba => ba.Author);
+            ValidateRequest(request);
 
-            query = request.SortBy.ToLower() switch
-            {
-                "title" => request.SortDirection.ToLower() == "desc" ? query.OrderByDescending(b => b.Title) : query.OrderBy(b => b.Title),
-                "publisher" => request.SortDirection.ToLower() == "desc" ? query.OrderByDescending(b => b.Publisher) : query.OrderBy(b => b.Publisher),
-                "price" => request.SortDirection.ToLower() == "desc" ? query.OrderByDescending(b => b.Price) : query.OrderBy(b => b.Price),
-                _ => query.OrderBy(b => b.BookId)
-            };
+            var books = await FetchBooks(request, cancellationToken);
 
-            return await query
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .Select(b => new BookWithAuthorsDto
-                {
-                    Title = b.Title,
-                    Authors = b.BookAuthors.Select(ba => ba.Author.PenName ?? ba.Author.FirstName + " " + ba.Author.LastName).ToList(),
-                    AuthorCount = b.BookAuthors.Count
-                }).ToListAsync(cancellationToken);
+            return books;
+        }
+
+        private void ValidateRequest(GetBooksWithAuthorsPagedQuery request)
+        {
+            if (request.Page <= 0)
+                ThrowArgument("Page must be greater than 0");
+
+            if (request.PageSize <= 0)
+                ThrowArgument("PageSize must be greater than 0");
+
+            if (!ValidSortByColumns.Contains(request.SortBy))
+                ThrowArgument($"SortBy must be one of: {string.Join(", ", ValidSortByColumns)}");
+
+            if (!ValidSortDirections.Contains(request.SortDirection.ToUpper()))
+                ThrowArgument("SortDirection must be 'ASC' or 'DESC'");
+        }
+
+        private void ThrowArgument(string message) => throw new ArgumentException(message);
+
+        private async Task<List<BookWithAuthorsDto>> FetchBooks(GetBooksWithAuthorsPagedQuery request, CancellationToken cancellationToken)
+        {
+            return await _db.Set<BookWithAuthorsDto>()
+                .FromSqlRaw(
+                    "EXEC dbo.GetBooksWithAuthorsPaged @Page = {0}, @PageSize = {1}, @SortBy = {2}, @SortDirection = {3}",
+                    request.Page, request.PageSize, request.SortBy, request.SortDirection.ToUpper())
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
         }
     }
 }
