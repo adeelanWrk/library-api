@@ -6,6 +6,5 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Progr
 builder.Services.AddScoped<IBookRepository, BookRepository>();
 
 var app = builder.Build();
-app.MapAuthorEndpoints();
 app.MapBookEndpoints();
 app.Run();

@@ -1,0 +1,53 @@
+## Build artifacts
+bin/
+obj/
+*.dll
+*.exe
+*.app
+*.log
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.sln
+
+## VS Code
+.vscode/
+
+## Rider
+.idea/
+
+## ASP.NET Core
+appsettings*.json
+.env
+
+## EF Core
+Migrations/
+
+## Package managers
+packages/
+*.nupkg
+*.snupkg
+
+## Logs
+*.log
+
+## Publish
+publish/
+out/
+
+## OS-specific
+.DS_Store
+Thumbs.db
+
+## Others
+*.swp
+*.bak
+*.tmp
+*.old
+
+# Test results
+TestResults/
+*.TestResults/
