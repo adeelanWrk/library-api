@@ -1,3 +1,8 @@
+using MediatR;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
 public static class BookEndpoints
 {
     public static void MapBookEndpoints(this IEndpointRouteBuilder app)

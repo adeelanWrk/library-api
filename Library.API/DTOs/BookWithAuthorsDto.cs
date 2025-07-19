@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 public class BookWithAuthorsDto
 {
     public string Title { get; set; } = string.Empty;

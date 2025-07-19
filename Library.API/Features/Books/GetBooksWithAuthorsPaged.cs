@@ -1,3 +1,11 @@
+
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
 public record GetBooksWithAuthorsPagedQuery(int Page, int PageSize, string SortBy, string SortDirection)
     : IRequest<List<BookWithAuthorsDto>>;
 
@@ -27,5 +35,5 @@ public class GetBooksWithAuthorsPagedHandler : IRequestHandler<GetBooksWithAutho
                 Authors = b.BookAuthors.Select(ba => ba.Author.PenName ?? ba.Author.FirstName + " " + ba.Author.LastName).ToList(),
                 AuthorCount = b.BookAuthors.Count
             }).ToListAsync(cancellationToken);
-    }
+    } 
 }

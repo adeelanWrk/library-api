@@ -1,53 +1,60 @@
-## Build artifacts
+# Ignore .vs folders ทั้งหมด (ไม่ว่าจะอยู่ที่ไหนในโปรเจกต์)
+.vs/
+
+# Build output folders
 bin/
 obj/
-*.dll
-*.exe
-*.app
-*.log
 
-## User-specific files
+# Rider project files
+.idea/
+
+# User-specific files
 *.user
 *.suo
 *.userosscache
-*.sln.docstates
-*.sln
+*.rsuser
+*.resharper
+*.DotSettings.user
 
-## VS Code
-.vscode/
+# Visual Studio generated files
+*.vsix
+*.cache
+*.pdb
+*.dll
+*.exe
 
-## Rider
-.idea/
+# ASP.NET Core wwwroot libraries (ถ้ามี)
+wwwroot/lib/
 
-## ASP.NET Core
-appsettings*.json
-.env
-
-## EF Core
-Migrations/
-
-## Package managers
-packages/
+# NuGet packages
 *.nupkg
 *.snupkg
+.nuget/
+packages/
 
-## Logs
+# Logs and databases
 *.log
+*.dbmdl
 
-## Publish
-publish/
-out/
-
-## OS-specific
+# OS generated files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-## Others
-*.swp
-*.bak
+# Temporary files
 *.tmp
-*.old
+*.temp
+
+# Entity Framework Core Migrations folder (ถ้าคุณต้องการ ignore)
+Migrations/
 
 # Test results
 TestResults/
-*.TestResults/
+
+# Coverage results
+coverage/
+
+# Publish output folder (ถ้ามี)
+publish/
+
+# หากมีไฟล์หรือโฟลเดอร์พิเศษที่อยาก ignore เพิ่มเติม ให้ใส่ตรงนี้
