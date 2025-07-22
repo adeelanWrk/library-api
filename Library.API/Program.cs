@@ -1,6 +1,5 @@
 using Library.API.Data;
 using Library.API.Data.Seeder;
-using Library.API.Repositories;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<LibraryDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
-builder.Services.AddScoped<IBookRepository, BookRepository>();
+// builder.Services.AddScoped<IBookRepository, BookRepository>();
 
 builder.Services.AddMediatR(typeof(Program).Assembly);
 
@@ -38,5 +37,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.MapBookEndpoints();
+app.MapAuthorEndpoints();
 
 app.Run();
