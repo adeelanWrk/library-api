@@ -15,7 +15,7 @@ namespace Library.API.Features.Books
 
         private static readonly HashSet<string> AllowedSortBy = new()
         {
-            "Title", "Publisher", "Price", "AuthorFirstName", "AuthorLastName"
+            "Title","AuthorCount","Author", "Publisher", "Price", "AuthorFirstName", "AuthorLastName"
         };
 
         private static readonly HashSet<string> AllowedSortDirection = new()
@@ -39,8 +39,7 @@ namespace Library.API.Features.Books
                     .ThenInclude(ba => ba.Author)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
-
-            return pagedBooks.Select(b => new BookWithAuthorsDto
+            var result = pagedBooks.Select(b => new BookWithAuthorsDto
             {
                 Title = b.Title,
                 Authors = b.BookAuthors.Select(ba => new AuthorsDto
@@ -51,6 +50,8 @@ namespace Library.API.Features.Books
                 }).ToList(),
                 AuthorCount = b.BookAuthors.Count()
             }).ToList();
+
+            return result;
         }
 
         private void ValidateRequest(GetBooksPagedRequestDto parameters)
@@ -101,6 +102,12 @@ namespace Library.API.Features.Books
             return sortBy switch
             {
                 "Title" => descending ? query.OrderByDescending(b => b.Title) : query.OrderBy(b => b.Title),
+                "AuthorCount" => descending
+                    ? query.OrderByDescending(b => b.BookAuthors.Count)
+                    : query.OrderBy(b => b.BookAuthors.Count),
+                "Author" => descending
+                    ? query.OrderByDescending(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault())
+                    : query.OrderBy(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault()),
                 "Publisher" => descending ? query.OrderByDescending(b => b.Publisher) : query.OrderBy(b => b.Publisher),
                 "Price" => descending ? query.OrderByDescending(b => b.Price) : query.OrderBy(b => b.Price),
                 "AuthorFirstName" => descending
