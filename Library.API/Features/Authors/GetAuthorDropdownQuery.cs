@@ -16,7 +16,7 @@ namespace Library.API.Features.Authors
         public async Task<List<Author>> Handle(GetAuthorDropdownQuery request, CancellationToken cancellationToken)
         {
 
-            var authors = await _db.Authors.AsNoTracking().ToListAsync(cancellationToken);
+            var authors = await _db.Authors.OrderBy(a => a.FirstName).AsNoTracking().ToListAsync(cancellationToken);
 
             return authors;
         }
