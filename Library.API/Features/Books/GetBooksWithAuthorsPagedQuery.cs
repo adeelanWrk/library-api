@@ -1,3 +1,4 @@
+using Evacuation.DTO.ResultSeverSideDTO;
 using Library.API.Data;
 using Library.API.DTOs;
 using MediatR;
@@ -7,16 +8,17 @@ using Microsoft.EntityFrameworkCore;
 namespace Library.API.Features.Books
 {
     public record GetBooksWithAuthorsPagedQuery(GetBooksPagedRequestDto Parameters)
-        : IRequest<List<BookWithAuthorsDto>>;
+        : IRequest<ResultSeverSideDTO<List<BookWithAuthorsDto>>>;
 
-    public class GetBooksWithAuthorsPagedHandler : IRequestHandler<GetBooksWithAuthorsPagedQuery, List<BookWithAuthorsDto>>
+    public class GetBooksWithAuthorsPagedHandler : IRequestHandler<GetBooksWithAuthorsPagedQuery, ResultSeverSideDTO<List<BookWithAuthorsDto>>>
     {
         private readonly LibraryDbContext _db;
 
         private static readonly HashSet<string> AllowedSortBy = new()
         {
-            "Title","AuthorCount","Author", "Publisher", "Price", "AuthorFirstName", "AuthorLastName"
+            "title","authorCount","author"
         };
+
 
         private static readonly HashSet<string> AllowedSortDirection = new()
         {
@@ -28,11 +30,12 @@ namespace Library.API.Features.Books
             _db = db ?? throw new ArgumentNullException(nameof(db));
         }
 
-        public async Task<List<BookWithAuthorsDto>> Handle(GetBooksWithAuthorsPagedQuery request, CancellationToken cancellationToken)
+        public async Task<ResultSeverSideDTO<List<BookWithAuthorsDto>>> Handle(GetBooksWithAuthorsPagedQuery request, CancellationToken cancellationToken)
         {
             ValidateRequest(request.Parameters);
 
             var booksQuery = BuildBooksQuery(request.Parameters);
+            int totalCount = await booksQuery.CountAsync(cancellationToken);
 
             var pagedBooks = await ApplyPaging(booksQuery, request.Parameters)
                 .Include(b => b.BookAuthors)
@@ -51,7 +54,17 @@ namespace Library.API.Features.Books
                 AuthorCount = b.BookAuthors.Count()
             }).ToList();
 
-            return result;
+            return new ResultSeverSideDTO<List<BookWithAuthorsDto>>
+            {
+                Data = result,
+                Desc = null,
+                IsError = false,
+                StatusCode = 200,
+                ErrorMessage = null,
+                TotalCount = totalCount,
+                Page = request.Parameters.Page,
+                PageSize = request.Parameters.PageSize,
+            };
         }
 
         private void ValidateRequest(GetBooksPagedRequestDto parameters)
@@ -62,7 +75,7 @@ namespace Library.API.Features.Books
             if (parameters.PageSize <= 0)
                 ThrowArgument("PageSize must be greater than 0");
 
-            var sortBy = (parameters.SortBy ?? "Title").Trim();
+            var sortBy = (parameters.SortBy ?? "title").Trim();
             if (!AllowedSortBy.Contains(sortBy))
                 ThrowArgument($"SortBy must be one of: {string.Join(", ", AllowedSortBy)}");
 
@@ -73,7 +86,7 @@ namespace Library.API.Features.Books
 
         private IQueryable<Book> BuildBooksQuery(GetBooksPagedRequestDto parameters)
         {
-            var sortBy = (parameters.SortBy ?? "Title").Trim();
+            var sortBy = (parameters.SortBy ?? "title").Trim();
             var sortDirection = (parameters.SortDirection ?? "ASC").Trim().ToUpperInvariant();
             var authorId = parameters.AuthorId;
 
@@ -101,22 +114,16 @@ namespace Library.API.Features.Books
 
             return sortBy switch
             {
-                "Title" => descending ? query.OrderByDescending(b => b.Title) : query.OrderBy(b => b.Title),
-                "AuthorCount" => descending
+                "title" => descending ? query.OrderByDescending(b => b.Title) : query.OrderBy(b => b.Title),
+                "authorCount" => descending
                     ? query.OrderByDescending(b => b.BookAuthors.Count)
                     : query.OrderBy(b => b.BookAuthors.Count),
-                "Author" => descending
+                "author" => descending
                     ? query.OrderByDescending(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault())
                     : query.OrderBy(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault()),
-                "Publisher" => descending ? query.OrderByDescending(b => b.Publisher) : query.OrderBy(b => b.Publisher),
-                "Price" => descending ? query.OrderByDescending(b => b.Price) : query.OrderBy(b => b.Price),
-                "AuthorFirstName" => descending
-                    ? query.OrderByDescending(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault())
-                    : query.OrderBy(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault()),
-                "AuthorLastName" => descending
-                    ? query.OrderByDescending(b => b.BookAuthors.Select(ba => ba.Author.LastName).FirstOrDefault())
-                    : query.OrderBy(b => b.BookAuthors.Select(ba => ba.Author.LastName).FirstOrDefault()),
-                _ => query.OrderBy(b => b.Title),
+                "publisher" => descending ? query.OrderByDescending(b => b.Publisher) : query.OrderBy(b => b.Publisher),
+                _ => throw new NotImplementedException()
+
             };
         }
 
