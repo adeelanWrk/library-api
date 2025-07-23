@@ -23,10 +23,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+await using (var scope = app.Services.CreateAsyncScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<LibraryDbContext>();
-    SeedData.Initialize(dbContext);
+    await SeedData.Initialize(dbContext);
 }
 
 if (app.Environment.IsDevelopment())
@@ -39,4 +39,4 @@ app.UseCors("AllowAll");
 app.MapBookEndpoints();
 app.MapAuthorEndpoints();
 
-app.Run();
+await app.RunAsync();

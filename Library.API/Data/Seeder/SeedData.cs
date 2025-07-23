@@ -1,56 +1,75 @@
 using Bogus;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Library.API.Data.Seeder
 {
-
-public static class SeedData
-{
-    public static void Initialize(LibraryDbContext context)
+    public static class SeedData
     {
-        if (context.Books.Any())
-            return;
-
-        var rnd = new Random();
-
-        // สร้าง 1000 authors
-        var authorFaker = new Faker<Author>()
-            .RuleFor(a => a.FirstName, f => f.Name.FirstName())
-            .RuleFor(a => a.LastName, f => f.Name.LastName())
-            .RuleFor(a => a.PenName, f => f.Internet.UserName());
-
-        var authors = authorFaker.Generate(1000);
-        context.Authors.AddRange(authors);
-        context.SaveChanges();  // ต้อง Save เพื่อให้ AuthorId มีค่า
-
-        // สร้าง 10,000 books
-        var bookFaker = new Faker<Book>()
-            .RuleFor(b => b.Title, f => f.Lorem.Sentence(3))
-            .RuleFor(b => b.Publisher, f => f.Company.CompanyName())
-            .RuleFor(b => b.Price, f => f.Random.Decimal(10, 100));
-
-        var books = bookFaker.Generate(10_000);
-        context.Books.AddRange(books);
-        context.SaveChanges(); // Save เพื่อให้ BookId มีค่า
-
-        // สร้างความสัมพันธ์แบบสุ่ม 1-3 authors ต่อหนังสือ 10,000 เล่ม
-        var bookAuthors = new List<BookAuthor>();
-
-        foreach (var book in books)
+        public static async Task Initialize(LibraryDbContext context)
         {
-            var authorCount = rnd.Next(1, 4);
-            var selectedAuthors = authors.OrderBy(a => rnd.Next()).Take(authorCount);
+            if (await context.Books.AnyAsync())
+                return;
 
-            foreach (var author in selectedAuthors)
+            var rnd = new Random();
+
+            var authorFaker = new Faker<Author>()
+                .RuleFor(a => a.FirstName, f => f.Name.FirstName())
+                .RuleFor(a => a.LastName, f => f.Name.LastName())
+                .RuleFor(a => a.PenName, f => f.Internet.UserName());
+
+            var authors = authorFaker.Generate(1000);
+            await context.Authors.AddRangeAsync(authors);
+            await context.SaveChangesAsync();
+
+            var bookFaker = new Faker<Book>()
+                .RuleFor(b => b.Title, f => f.Lorem.Sentence(3))
+                .RuleFor(b => b.Publisher, f => f.Company.CompanyName())
+                .RuleFor(b => b.Price, f => f.Random.Decimal(10, 100));
+
+            var books = bookFaker.Generate(10_000);
+            await context.Books.AddRangeAsync(books);
+            await context.SaveChangesAsync();
+
+            var bookAuthors = new List<BookAuthor>();
+
+            List<T> GetRandomSubset<T>(List<T> list, int count, Random random)
             {
-                bookAuthors.Add(new BookAuthor { BookId = book.BookId, AuthorId = author.AuthorId });
-            }
-        }
+                var result = new List<T>(count);
+                var takenIndices = new HashSet<int>();
 
-        context.BookAuthors.AddRange(bookAuthors);
-        context.SaveChanges();
+                while (result.Count < count)
+                {
+                    int index = random.Next(list.Count);
+                    if (takenIndices.Add(index))
+                    {
+                        result.Add(list[index]);
+                    }
+                }
+
+                return result;
+            }
+
+            foreach (var book in books)
+            {
+                int authorCount = rnd.Next(1, 4);
+                var selectedAuthors = GetRandomSubset(authors, authorCount, rnd);
+
+                foreach (var author in selectedAuthors)
+                {
+                    bookAuthors.Add(new BookAuthor
+                    {
+                        BookId = book.BookId,
+                        AuthorId = author.AuthorId
+                    });
+                }
+            }
+
+            await context.BookAuthors.AddRangeAsync(bookAuthors);
+            await context.SaveChangesAsync();
+        }
     }
-}
 }
