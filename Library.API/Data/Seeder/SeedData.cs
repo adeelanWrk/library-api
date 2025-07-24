@@ -1,8 +1,6 @@
 using Bogus;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Library.API.Data.Seeder
 {
@@ -10,8 +8,10 @@ namespace Library.API.Data.Seeder
     {
         public static void Initialize(LibraryDbContext context)
         {
-            if (context.Books.Any())
+            if (context.Books.AsNoTracking().Any())
                 return;
+
+            using var transaction = context.Database.BeginTransaction();  // <-- เพิ่มตรงนี้
 
             var rnd = new Random();
 
@@ -21,8 +21,14 @@ namespace Library.API.Data.Seeder
                 .RuleFor(a => a.PenName, f => f.Internet.UserName());
 
             var authors = authorFaker.Generate(100_000);
-            context.Authors.AddRange(authors);
-            context.SaveChanges();
+
+            context.BulkInsert(authors, new BulkConfig
+            {
+                SetOutputIdentity = true,
+                BatchSize = 10000,
+                UseTempDB = true,
+                BulkCopyTimeout = 600,
+            });
 
             var bookFaker = new Faker<Book>()
                 .RuleFor(b => b.Title, f => f.Lorem.Sentence(3))
@@ -30,45 +36,60 @@ namespace Library.API.Data.Seeder
                 .RuleFor(b => b.Price, f => f.Random.Decimal(10, 100));
 
             var books = bookFaker.Generate(150_000);
-            context.Books.AddRange(books);
-            context.SaveChanges();
 
-            var bookAuthors = new List<BookAuthor>();
+            context.BulkInsert(books, new BulkConfig
+            {
+                SetOutputIdentity = true,
+                BatchSize = 10000,
+                UseTempDB = true,
+                BulkCopyTimeout = 600,
+            });
 
             List<T> GetRandomSubset<T>(List<T> list, int count, Random random)
             {
-                var result = new List<T>(count);
-                var takenIndices = new HashSet<int>();
-
-                while (result.Count < count)
+                var copy = list.ToArray();
+                for (int i = 0; i < count; i++)
                 {
-                    int index = random.Next(list.Count);
-                    if (takenIndices.Add(index))
-                    {
-                        result.Add(list[index]);
-                    }
+                    int swapIndex = i + random.Next(copy.Length - i);
+                    var temp = copy[i];
+                    copy[i] = copy[swapIndex];
+                    copy[swapIndex] = temp;
                 }
-
-                return result;
+                return copy.Take(count).ToList();
             }
 
-            foreach (var book in books)
+            var bookAuthors = new List<BookAuthor>(books.Count * 2);
+
+            for (int i = 0; i < books.Count; i++)
             {
                 int authorCount = rnd.Next(1, 4);
+
                 var selectedAuthors = GetRandomSubset(authors, authorCount, rnd);
 
-                foreach (var author in selectedAuthors)
+                for (int j = 0; j < selectedAuthors.Count; j++)
                 {
                     bookAuthors.Add(new BookAuthor
                     {
-                        BookId = book.BookId,
-                        AuthorId = author.AuthorId
+                        BookId = books[i].BookId,
+                        AuthorId = selectedAuthors[j].AuthorId
                     });
                 }
             }
 
-            context.BookAuthors.AddRange(bookAuthors);
-            context.SaveChanges();
+            int batchSize = 10000;
+            for (int i = 0; i < bookAuthors.Count; i += batchSize)
+            {
+                var batch = bookAuthors.Skip(i).Take(batchSize).ToList();
+                context.BulkInsert(batch, new BulkConfig
+                {
+                    BatchSize = batchSize,
+                    UseTempDB = true,
+                    BulkCopyTimeout = 600,
+                });
+            }
+
+            transaction.Commit();  
         }
+
     }
 }
