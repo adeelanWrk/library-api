@@ -1,5 +1,6 @@
 using Library.API.Features.Books;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 
 public static class BookEndpoints
 {
@@ -17,5 +18,12 @@ public static class BookEndpoints
                         return Results.Ok(result);
                     });
 
+        app.MapGet("/api/books/infinite", async (
+            ISender sender) =>
+        {
+            var query = new GetBooksQuery();
+            var result = await sender.Send(query);
+            return Results.Ok(result);
+        });
     }
 }

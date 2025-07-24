@@ -95,7 +95,7 @@ namespace Library.API.Features.Books
 
             if (authorId > 0)
             {
-                query = query.Where(b => b.BookAuthors.Any(ba => ba.AuthorId == 1018));
+                query = query.Where(b => b.BookAuthors.Any(ba => ba.AuthorId == authorId));
             }
 
             query = ApplySorting(query, sortBy, sortDirection);
