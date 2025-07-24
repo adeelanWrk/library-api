@@ -4,7 +4,6 @@ using Library.API.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-
 namespace Library.API.Features.Books
 {
     public record GetBooksWithAuthorsPagedQuery(GetBooksPagedRequestDto Parameters)
@@ -16,9 +15,8 @@ namespace Library.API.Features.Books
 
         private static readonly HashSet<string> AllowedSortBy = new()
         {
-            "title","authorCount","author"
+            "title", "authorCount", "authors"
         };
-
 
         private static readonly HashSet<string> AllowedSortDirection = new()
         {
@@ -42,8 +40,11 @@ namespace Library.API.Features.Books
                     .ThenInclude(ba => ba.Author)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
-            var result = pagedBooks.Select(b => new BookWithAuthorsDto
+
+            var result = pagedBooks.Select((b, index) => new BookWithAuthorsDto
             {
+                Row = (request.Parameters.Page - 1) * request.Parameters.PageSize + index + 1,
+                BookId = b.BookId,
                 Title = b.Title,
                 Authors = b.BookAuthors.Select(ba => new AuthorsDto
                 {
@@ -94,7 +95,7 @@ namespace Library.API.Features.Books
 
             if (authorId > 0)
             {
-                query = query.Where(b => b.BookAuthors.Any(ba => ba.AuthorId == authorId));
+                query = query.Where(b => b.BookAuthors.Any(ba => ba.AuthorId == 1018));
             }
 
             query = ApplySorting(query, sortBy, sortDirection);
@@ -118,12 +119,10 @@ namespace Library.API.Features.Books
                 "authorCount" => descending
                     ? query.OrderByDescending(b => b.BookAuthors.Count)
                     : query.OrderBy(b => b.BookAuthors.Count),
-                "author" => descending
+                "authors" => descending
                     ? query.OrderByDescending(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault())
                     : query.OrderBy(b => b.BookAuthors.Select(ba => ba.Author.FirstName).FirstOrDefault()),
-                "publisher" => descending ? query.OrderByDescending(b => b.Publisher) : query.OrderBy(b => b.Publisher),
                 _ => throw new NotImplementedException()
-
             };
         }
 

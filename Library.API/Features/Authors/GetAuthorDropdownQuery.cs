@@ -4,19 +4,43 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Library.API.Features.Authors
 {
-    public record GetAuthorDropdownQuery()
-        : IRequest<List<Author>>;
+    public record GetAuthorDropdownQuery(string? Term = null)
+        : IRequest<List<AuthorDto>>;
 
-    public class GetAuthorDropdownHandler : IRequestHandler<GetAuthorDropdownQuery, List<Author>>
+    public record AuthorDto(int AuthorId, string FirstName, string LastName, string? PenName);
+
+    public class GetAuthorDropdownHandler : IRequestHandler<GetAuthorDropdownQuery, List<AuthorDto>>
     {
         private readonly LibraryDbContext _db;
 
         public GetAuthorDropdownHandler(LibraryDbContext db) => _db = db;
 
-        public async Task<List<Author>> Handle(GetAuthorDropdownQuery request, CancellationToken cancellationToken)
+        public async Task<List<AuthorDto>> Handle(GetAuthorDropdownQuery request, CancellationToken cancellationToken)
         {
+            var query = _db.Authors
+                .AsNoTracking();
+                
+            if (!string.IsNullOrEmpty(request.Term))
+            {
+                var term = $"%{request.Term}%";
+                query = query.Where(a =>
+                    EF.Functions.Like(a.FirstName, term) ||
+                    EF.Functions.Like(a.LastName, term) ||
+                    (a.PenName != null && EF.Functions.Like(a.PenName, term))
+                );
+            }
 
-            var authors = await _db.Authors.OrderBy(a => a.FirstName).AsNoTracking().ToListAsync(cancellationToken);
+
+            var authors = await query
+                .OrderBy(a => a.FirstName)
+                .Take(50)
+                .Select(a => new AuthorDto(
+                    a.AuthorId,
+                    a.FirstName,
+                    a.LastName,
+                    a.PenName
+                ))
+                .ToListAsync(cancellationToken);
 
             return authors;
         }

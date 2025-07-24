@@ -3,6 +3,8 @@ namespace Library.API.DTOs
 {
     public class BookWithAuthorsDto
     {
+        public int Row { get; set; }
+        public int BookId { get; set; }
         public string Title { get; set; } = string.Empty;
         public List<AuthorsDto> Authors { get; set; } = new();
         public int AuthorCount { get; set; }
