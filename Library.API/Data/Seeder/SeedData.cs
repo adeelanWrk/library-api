@@ -11,7 +11,7 @@ namespace Library.API.Data.Seeder
             if (context.Books.AsNoTracking().Any())
                 return;
 
-            using var transaction = context.Database.BeginTransaction();  // <-- เพิ่มตรงนี้
+            using var transaction = context.Database.BeginTransaction(); 
 
             var rnd = new Random();
 
