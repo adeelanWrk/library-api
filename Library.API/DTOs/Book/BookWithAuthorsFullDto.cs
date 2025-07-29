@@ -7,7 +7,7 @@ namespace Library.API.DTOs.book.BookWithAuthorsMuiDto
         public int BookId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Publisher { get; set; } = string.Empty;
-        public decimal Price { get; set; }
+        public decimal? Price { get; set; }
         public List<AuthorsDto> Authors { get; set; } = new();
         public int AuthorCount { get; set; }
     }

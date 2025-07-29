@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-public class Book
+public class BookHistory
 {
     public int BookId { get; set; } 
     public string? Title { get; set; }
@@ -8,5 +8,5 @@ public class Book
     public decimal? Price { get; set; }
     public DateTime? UpdatedDate { get; set; }
 
-    public ICollection<BookAuthor> BookAuthors { get; set; } = new List<BookAuthor>();
+    public ICollection<BookAuthorHistory> BookAuthors { get; set; } = new List<BookAuthorHistory>();
 }

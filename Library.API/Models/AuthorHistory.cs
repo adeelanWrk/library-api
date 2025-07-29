@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-public class AuthorHistory
+public class Author
 {
     public int AuthorId { get; set; }
     public string FirstName { get; set; } = null!;
@@ -7,5 +7,5 @@ public class AuthorHistory
     public string PenName { get; set; } = null!;
     public DateTime? UpdatedDate { get; set; }
 
-    public ICollection<BookAuthorHistory> BookAuthors { get; set; } = new List<BookAuthorHistory>();
+    public ICollection<BookAuthor> BookAuthors { get; set; } = new List<BookAuthor>();
 }
