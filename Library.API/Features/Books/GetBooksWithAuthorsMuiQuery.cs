@@ -1,15 +1,15 @@
 using Evacuation.DTO.ResultSeverSideDTO;
 using Library.API.Data;
-using Library.API.DTOs;
+using Library.API.DTOs.book.BookWithAuthorsMuiDto;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Library.API.Features.Books
 {
-    public record GetBooksWithAuthorsPagedQuery(GetBooksPagedRequestDto Parameters)
-        : IRequest<ResultSeverSideDTO<List<BookWithAuthorsDto>>>;
+    public record GetBooksWithAuthorsMuiQuery(GetBooksPagedRequestDto Parameters)
+        : IRequest<ResultSeverSideDTO<List<BookWithAuthorsMuiDto>>>;
 
-    public class GetBooksWithAuthorsPagedHandler : IRequestHandler<GetBooksWithAuthorsPagedQuery, ResultSeverSideDTO<List<BookWithAuthorsDto>>>
+    public class GetBooksWithAuthorsMuiHandler : IRequestHandler<GetBooksWithAuthorsMuiQuery, ResultSeverSideDTO<List<BookWithAuthorsMuiDto>>>
     {
         private readonly LibraryDbContext _db;
 
@@ -23,12 +23,12 @@ namespace Library.API.Features.Books
             "ASC", "DESC"
         };
 
-        public GetBooksWithAuthorsPagedHandler(LibraryDbContext db)
+        public GetBooksWithAuthorsMuiHandler(LibraryDbContext db)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
         }
 
-        public async Task<ResultSeverSideDTO<List<BookWithAuthorsDto>>> Handle(GetBooksWithAuthorsPagedQuery request, CancellationToken cancellationToken)
+        public async Task<ResultSeverSideDTO<List<BookWithAuthorsMuiDto>>> Handle(GetBooksWithAuthorsMuiQuery request, CancellationToken cancellationToken)
         {
             ValidateRequest(request.Parameters);
 
@@ -41,10 +41,13 @@ namespace Library.API.Features.Books
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
-            var result = pagedBooks.Select((b, index) => new BookWithAuthorsDto
+            var result = pagedBooks.Select((b, index) => new BookWithAuthorsMuiDto
             {
+                
                 BookId = b.BookId,
                 Title = b.Title,
+                Publisher = b.Publisher,
+                Price = b.Price,
                 Authors = b.BookAuthors.Select(ba => new AuthorsDto
                 {
                     AuthorId = ba.Author.AuthorId,
@@ -54,7 +57,7 @@ namespace Library.API.Features.Books
                 AuthorCount = b.BookAuthors.Count()
             }).ToList();
 
-            return new ResultSeverSideDTO<List<BookWithAuthorsDto>>
+            return new ResultSeverSideDTO<List<BookWithAuthorsMuiDto>>
             {
                 Data = result,
                 Desc = null,

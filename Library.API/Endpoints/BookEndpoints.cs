@@ -25,5 +25,14 @@ public static class BookEndpoints
             var result = await sender.Send(query);
             return Results.Ok(result);
         });
+       
+        app.MapPost("/api/books/mui", async (
+            GetBooksPagedRequestDto request,
+            ISender sender) =>
+        {
+            var query = new GetBooksWithAuthorsMuiQuery(request);
+            var result = await sender.Send(query);
+            return Results.Ok(result);
+        });
     }
 }
