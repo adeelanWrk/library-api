@@ -12,13 +12,18 @@ builder.Services.AddDbContext<LibraryDbContext>(options =>
 
 builder.Services.AddMediatR(typeof(Program).Assembly);
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// builder.Services.AddEndpointsApiExplorer();
+// builder.Services.AddSwaggerGen();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50 MB
 });
 
 var app = builder.Build();
@@ -29,14 +34,16 @@ using (var scope = app.Services.CreateScope())
      SeedData.Initialize(dbContext);
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+
+// if (app.Environment.IsDevelopment())
+// {
+//     app.UseSwagger();
+//     app.UseSwaggerUI();
+// }
 
 app.UseCors("AllowAll");
 app.MapBookEndpoints();
 app.MapAuthorEndpoints();
+
 
 app.Run();

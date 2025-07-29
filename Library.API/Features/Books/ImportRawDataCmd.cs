@@ -1,102 +1,106 @@
 using ClosedXML.Excel;
 using Evacuation.DTO.ResultDTO;
-using Library.API.Data;
 using Library.API.DTOs.RawData;
 using MediatR;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
+
 using System.Text;
 
 namespace Library.API.Features.RawData
 {
-    public record UpsertRawDataListCmd(List<BookAuthorRawDataDto> RawData) : IRequest<(int Created, int Updated)>;
+    public record ImportRawDataCmd(IFormFile File) : IRequest<ResultDTO<string>>;
 
-    public class UpsertRawDataListHandler : IRequestHandler<UpsertRawDataListCmd, (int Created, int Updated)>
+    public class GetImportRawDataHandler : IRequestHandler<ImportRawDataCmd, ResultDTO<string>>
     {
-        private readonly LibraryDbContext _db;
+        private readonly ISender _sender;
 
-        public UpsertRawDataListHandler(LibraryDbContext db)
+        public GetImportRawDataHandler(ISender sender)
         {
-            _db = db;
+            _sender = sender;
         }
 
-        public async Task<(int Created, int Updated)> Handle(UpsertRawDataListCmd request, CancellationToken cancellationToken)
+        public async Task<ResultDTO<string>> Handle(ImportRawDataCmd request, CancellationToken cancellationToken)
         {
-            int created = 0, updated = 0;
+            var rawData = ReadExcelData(request.File, out var validationErrors);
 
-            foreach (var dto in request.RawData)
-            {
-                var (bookCreated, bookUpdated) = await UpsertBookAsync(dto, cancellationToken);
-                var (authorCreated, authorUpdated) = await UpsertAuthorAsync(dto, cancellationToken);
-                var bookAuthorCreated = await AddBookAuthorIfNotExistsAsync(dto, cancellationToken);
+            if (rawData == null || !rawData.Any())
+                return Result("No data found in the worksheet.", "", 400);
 
-                if (bookCreated) created++;
-                if (bookUpdated) updated++;
-                if (authorCreated) created++;
-                if (authorUpdated) updated++;
-                if (bookAuthorCreated) created++;
-            }
+            if (validationErrors.Length > 0)
+                return Result($"Validation failed.<br>{validationErrors}", string.Empty, 400);
 
-            await _db.SaveChangesAsync(cancellationToken);
-            return (created, updated);
+
+            var (created, updated) = await _sender.Send(new UpsertRawDataListCmd(rawData), cancellationToken);
+
+            return Result($"Import successful.  <br> {created} {updated}", "", 200);
         }
 
-        private async Task<(bool Created, bool Updated)> UpsertBookAsync(BookAuthorRawDataDto dto, CancellationToken ct)
+        private List<BookAuthorRawDataDto> ReadExcelData(IFormFile file, out StringBuilder validationErrors)
         {
-            var book = await _db.Books.FindAsync(new object[] { dto.BookId }, ct);
+            validationErrors = new StringBuilder();
 
-            if (book == null)
+            using var workbook = new XLWorkbook(file.OpenReadStream());
+            var worksheet = workbook.Worksheet(2);
+            var range = worksheet.RangeUsed();
+
+            if (range == null)
+                return new List<BookAuthorRawDataDto>();
+
+            var rows = range.RowsUsed().Skip(1);
+            var result = new List<BookAuthorRawDataDto>();
+            int rowIndex = 2;
+
+            foreach (var row in rows)
             {
-                _db.Books.Add(new Book
+                var bookIdStr = row.Cell(1).GetValue<string>();
+                var priceStr = row.Cell(4).GetValue<string>();
+                var authorIdStr = row.Cell(5).GetValue<string>();
+
+                bool hasError = false;
+
+                if (!int.TryParse(bookIdStr, out int bookId))
                 {
-                    BookId = dto.BookId,
-                    Title = dto.Title ?? string.Empty,
-                    Publisher = dto.Publisher,
-                    Price = dto.Price
-                });
-                return (true, false);
-            }
-
-            book.Title = dto.Title;
-            book.Publisher = dto.Publisher;
-            book.Price = dto.Price;
-            return (false, true);
-        }
-
-        private async Task<(bool Created, bool Updated)> UpsertAuthorAsync(BookAuthorRawDataDto dto, CancellationToken ct)
-        {
-            var author = await _db.Authors.FindAsync(new object[] { dto.AuthorId }, ct);
-
-            if (author == null)
-            {
-                _db.Authors.Add(new Author
+                    validationErrors.AppendLine($"on column: BookId row: {rowIndex} value: '{bookIdStr}' is not correct <br>");
+                    hasError = true;
+                }
+                if (!decimal.TryParse(priceStr, out decimal price))
                 {
-                    AuthorId = dto.AuthorId,
-                    FirstName = dto.FirstName,
-                    LastName = dto.LastName,
-                    PenName = dto.PenName
-                });
-                return (true, false);
+                    validationErrors.AppendLine($"on column: Price row: {rowIndex} value: '{priceStr}' is not correct <br>");
+                    hasError = true;
+                }
+                if (!int.TryParse(authorIdStr, out int authorId))
+                {
+                    validationErrors.AppendLine($"on column: AuthorId row: {rowIndex} value: '{authorIdStr}' is not correct <br>");
+                    hasError = true;
+                }
+
+                if (!hasError)
+                {
+                    result.Add(new BookAuthorRawDataDto
+                    {
+                        BookId = bookId,
+                        Title = row.Cell(2).GetValue<string>(),
+                        Publisher = row.Cell(3).GetValue<string>(),
+                        Price = price,
+                        AuthorId = authorId,
+                        FirstName = row.Cell(6).GetValue<string>(),
+                        LastName = row.Cell(7).GetValue<string>(),
+                        PenName = row.Cell(8).GetValue<string>()
+                    });
+                }
+
+                rowIndex++;
             }
 
-            author.FirstName = dto.FirstName;
-            author.LastName = dto.LastName;
-            author.PenName = dto.PenName;
-            return (false, true);
+            return result;
         }
 
-        private async Task<bool> AddBookAuthorIfNotExistsAsync(BookAuthorRawDataDto dto, CancellationToken ct)
-        {
-            var exists = await _db.BookAuthors.FindAsync(new object[] { dto.BookId, dto.AuthorId }, ct);
-            if (exists != null) return false;
-
-            _db.BookAuthors.Add(new BookAuthor
+        private ResultDTO<string> Result(string desc, string data, int code) =>
+            new ResultDTO<string>
             {
-                BookId = dto.BookId,
-                AuthorId = dto.AuthorId
-            });
-            return true;
-        }
+                Desc = desc,
+                Data = data,
+                StatusCode = code
+            };
     }
 }
 

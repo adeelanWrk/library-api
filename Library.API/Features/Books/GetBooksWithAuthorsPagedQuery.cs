@@ -44,12 +44,12 @@ namespace Library.API.Features.Books
             var result = pagedBooks.Select((b, index) => new BookWithAuthorsDto
             {
                 BookId = b.BookId,
-                Title = b.Title,
+                Title = b.Title ?? string.Empty,
                 Authors = b.BookAuthors.Select(ba => new AuthorsDto
                 {
                     AuthorId = ba.Author.AuthorId,
-                    FirstName = ba.Author.FirstName,
-                    LastName = ba.Author.LastName
+                    FirstName = ba.Author.FirstName ?? string.Empty,
+                    LastName = ba.Author.LastName ?? string.Empty
                 }).ToList(),
                 AuthorCount = b.BookAuthors.Count()
             }).ToList();

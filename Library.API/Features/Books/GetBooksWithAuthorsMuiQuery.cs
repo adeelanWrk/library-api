@@ -45,8 +45,8 @@ namespace Library.API.Features.Books
             {
                 
                 BookId = b.BookId,
-                Title = b.Title,
-                Publisher = b.Publisher,
+                Title = b.Title ?? string.Empty,
+                Publisher = b.Publisher ?? string.Empty,
                 Price = b.Price,
                 Authors = b.BookAuthors.Select(ba => new AuthorsDto
                 {
