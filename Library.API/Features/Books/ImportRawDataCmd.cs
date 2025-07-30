@@ -1,5 +1,5 @@
 using ClosedXML.Excel;
-using Evacuation.DTO.ResultDTO;
+using Library.API.DTO.ResultDTO;
 using Library.API.DTOs.RawData;
 using MediatR;
 
@@ -29,9 +29,10 @@ namespace Library.API.Features.RawData
                 return Result($"Validation failed.<br>{validationErrors}", string.Empty, 400);
 
 
-            var (created, updated) = await _sender.Send(new UpsertRawDataListCmd(rawData), cancellationToken);
+            var  result = await _sender.Send(new UpsertRawDataListCmd(rawData), cancellationToken);
+            
 
-            return Result($"Import successful.  <br> {created} {updated}", "", 200);
+            return Result($"Import successful.  <br> {result.Desc}", "", result.StatusCode);
         }
 
         private List<BookAuthorRawDataDto> ReadExcelData(IFormFile file, out StringBuilder validationErrors)

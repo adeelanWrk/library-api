@@ -1,4 +1,4 @@
-using Evacuation.DTO.ResultDTO;
+using Library.API.DTO.ResultDTO;
 using Library.API.Data;
 using Library.API.DTOs;
 using MediatR;

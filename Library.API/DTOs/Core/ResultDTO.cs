@@ -1,4 +1,4 @@
-namespace Evacuation.DTO.ResultDTO;
+namespace Library.API.DTO.ResultDTO;
 
 public class ResultDTO<T>
 {

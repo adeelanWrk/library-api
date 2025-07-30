@@ -1,6 +1,6 @@
 using ClosedXML.Excel;
-using Evacuation.DTO.ResultDTO;
 using Library.API.Data;
+using Library.API.DTO.ResultDTO;
 using Library.API.DTOs.RawData;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +63,8 @@ namespace Library.API.Features.RawData
                     LastName = ba.Author.LastName,
                     PenName = ba.Author.PenName
                 })
+                .AsNoTracking()
+                .Take(1000)
                 .ToListAsync(cancellationToken);
         }
     }

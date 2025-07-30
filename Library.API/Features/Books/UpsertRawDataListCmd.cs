@@ -1,195 +1,147 @@
 using Library.API.Data;
 using Library.API.DTOs.RawData;
+using Library.API.DTO.ResultDTO;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Library.API.Features.RawData
 {
-    public record UpsertRawDataListCmd(List<BookAuthorRawDataDto> RawData) : IRequest<(string CreatedSummary, string UpdatedSummary)>;
+    public record UpsertRawDataListCmd(List<BookAuthorRawDataDto> RawData) : IRequest<ResultDTO<string>>;
 
-    public class UpsertRawDataListHandler : IRequestHandler<UpsertRawDataListCmd, (string CreatedSummary, string UpdatedSummary)>
+    public class UpsertRawDataListHandler : IRequestHandler<UpsertRawDataListCmd, ResultDTO<string>>
     {
         private readonly LibraryDbContext _db;
 
-        public UpsertRawDataListHandler(LibraryDbContext db) => _db = db;
-
-        public async Task<(string CreatedSummary, string UpdatedSummary)> Handle(UpsertRawDataListCmd request, CancellationToken cancellationToken)
+        public UpsertRawDataListHandler(LibraryDbContext db)
         {
-            var validData = FilterInvalidData(request.RawData);
+            _db = db;
+        }
 
-            var bookIds = ExtractBookIds(validData);
-            var authorIds = ExtractAuthorIds(validData);
+        public async Task<ResultDTO<string>> Handle(UpsertRawDataListCmd request, CancellationToken cancellationToken)
+        {
+            var now = DateTime.Now;
+            var validData = GetValidData(request.RawData);
 
-            var existingBooks = await FetchExistingBooksAsync(bookIds, cancellationToken);
-            var existingAuthors = await FetchExistingAuthorsAsync(authorIds, cancellationToken);
+            var bookIds = validData.Select(d => d.BookId).Distinct().ToList();
+            var authorIds = validData.Select(d => d.AuthorId).Distinct().ToList();
 
-            var counters = new UpsertCounters();
+            var existingBooks = await _db.Books
+                .Where(b => bookIds.Contains(b.BookId))
+                .ToListAsync(cancellationToken);
 
-            // 1. Upsert Books and Authors first
-            foreach (var dto in validData)
-            {
-                UpsertBook(dto, existingBooks, counters);
-                UpsertAuthor(dto, existingAuthors, counters);
-            }
+            var existingAuthors = await _db.Authors
+                .Where(a => authorIds.Contains(a.AuthorId))
+                .ToListAsync(cancellationToken);
 
-            // Save Books and Authors so that IDs are generated and exist in DB
-            await _db.SaveChangesAsync(cancellationToken);
+            var missingBookIds = bookIds.Except(existingBooks.Select(b => b.BookId)).ToList();
+            var missingAuthorIds = authorIds.Except(existingAuthors.Select(a => a.AuthorId)).ToList();
 
-            // Reload Books and Authors (if IDs auto-generated, to be sure)
-            existingBooks = await FetchExistingBooksAsync(bookIds, cancellationToken);
-            existingAuthors = await FetchExistingAuthorsAsync(authorIds, cancellationToken);
+            if (missingBookIds.Any() || missingAuthorIds.Any())
+                return BuildValidationError(missingBookIds, missingAuthorIds);
 
-            // 2. Upsert BookAuthors now
-            var existingBookAuthors = await FetchExistingBookAuthorsAsync(bookIds, authorIds, cancellationToken);
-
-            foreach (var dto in validData)
-            {
-                UpsertBookAuthorLink(dto, existingBookAuthors, counters);
-            }
+            var counters = UpdateEntities(validData, existingBooks, existingAuthors, now);
 
             await _db.SaveChangesAsync(cancellationToken);
 
-            return BuildSummary(counters);
+            return BuildSuccessResult(counters);
         }
 
-        private static List<BookAuthorRawDataDto> FilterInvalidData(List<BookAuthorRawDataDto> rawData)
-            => rawData.Where(d => d.BookId != 0 && d.AuthorId != 0).ToList();
+        private static List<BookAuthorRawDataDto> GetValidData(IEnumerable<BookAuthorRawDataDto> data) =>
+            data.Where(d => d.BookId != 0 && d.AuthorId != 0).ToList();
 
-        private static List<int> ExtractBookIds(IEnumerable<BookAuthorRawDataDto> data)
-            => data.Select(d => d.BookId).Distinct().ToList();
-
-        private static List<int> ExtractAuthorIds(IEnumerable<BookAuthorRawDataDto> data)
-            => data.Select(d => d.AuthorId).Distinct().ToList();
-
-        private async Task<Dictionary<int, Book>> FetchExistingBooksAsync(List<int> bookIds, CancellationToken ct)
-            => await _db.Books.Where(b => bookIds.Contains(b.BookId))
-                              .ToDictionaryAsync(b => b.BookId, ct);
-
-        private async Task<Dictionary<int, Author>> FetchExistingAuthorsAsync(List<int> authorIds, CancellationToken ct)
-            => await _db.Authors.Where(a => authorIds.Contains(a.AuthorId))
-                               .ToDictionaryAsync(a => a.AuthorId, ct);
-
-        private async Task<List<BookAuthor>> FetchExistingBookAuthorsAsync(List<int> bookIds, List<int> authorIds, CancellationToken ct)
-            => await _db.BookAuthors.Where(ba => bookIds.Contains(ba.BookId) && authorIds.Contains(ba.AuthorId))
-                                   .ToListAsync(ct);
-
-        private void UpsertBook(BookAuthorRawDataDto dto, Dictionary<int, Book> existingBooks, UpsertCounters counters)
+        private UpdateCounters UpdateEntities(
+            IEnumerable<BookAuthorRawDataDto> data,
+            List<Book> books,
+            List<Author> authors,
+            DateTime now)
         {
-            if (!existingBooks.TryGetValue(dto.BookId, out var book))
+            var counters = new UpdateCounters();
+
+            foreach (var dto in data)
             {
-                book = CreateBookFromDto(dto);
-                _db.Books.Add(book);
-                existingBooks.Add(dto.BookId, book);
-                counters.CreatedBooks++;
-                return;
+                var book = books.FirstOrDefault(b => b.BookId == dto.BookId);
+                if (book != null)
+                {
+                    UpdateBook(book, dto, now);
+                    counters.UpdatedBooks++;
+                }
+
+                var author = authors.FirstOrDefault(a => a.AuthorId == dto.AuthorId);
+                if (author != null)
+                {
+                    UpdateAuthor(author, dto, now);
+                    counters.UpdatedAuthors++;
+                }
             }
 
-            if (UpdateBookIfChanged(book, dto))
-                counters.UpdatedBooks++;
+            return counters;
         }
 
-        private static Book CreateBookFromDto(BookAuthorRawDataDto dto)
-            => new Book
-            {
-                // สมมติ BookId เป็น Identity ให้ไม่กำหนด
-                // BookId = dto.BookId,
-                Title = dto.Title?.Trim() ?? string.Empty,
-                Publisher = dto.Publisher?.Trim(),
-                Price = dto.Price
-            };
-
-        private static bool UpdateBookIfChanged(Book book, BookAuthorRawDataDto dto)
+        private void UpdateBook(Book book, BookAuthorRawDataDto dto, DateTime updatedDate)
         {
-            var title = dto.Title?.Trim() ?? string.Empty;
-            var publisher = dto.Publisher?.Trim();
-
-            if (book.Title == title && book.Publisher == publisher && book.Price == dto.Price)
-                return false;
-
-            book.Title = title;
-            book.Publisher = publisher;
+            book.Title = dto.Title?.Trim() ?? string.Empty;
+            book.Publisher = dto.Publisher?.Trim();
             book.Price = dto.Price;
-            return true;
+            book.UpdatedDate = updatedDate;
         }
 
-        private void UpsertAuthor(BookAuthorRawDataDto dto, Dictionary<int, Author> existingAuthors, UpsertCounters counters)
+        private void UpdateAuthor(Author author, BookAuthorRawDataDto dto, DateTime updatedDate)
         {
-            if (!existingAuthors.TryGetValue(dto.AuthorId, out var author))
-            {
-                author = CreateAuthorFromDto(dto);
-                _db.Authors.Add(author);
-                existingAuthors.Add(dto.AuthorId, author);
-                counters.CreatedAuthors++;
-                return;
-            }
-
-            if (UpdateAuthorIfChanged(author, dto))
-                counters.UpdatedAuthors++;
+            author.FirstName = dto.FirstName?.Trim() ?? string.Empty;
+            author.LastName = dto.LastName?.Trim() ?? string.Empty;
+            author.PenName = dto.PenName?.Trim() ?? string.Empty;
+            author.UpdatedDate = updatedDate;
         }
 
-        private static Author CreateAuthorFromDto(BookAuthorRawDataDto dto)
-            => new Author
+        private ResultDTO<string> BuildValidationError(List<int> missingBookIds, List<int> missingAuthorIds)
+        {
+            var lines = new List<string>();
+
+            if (missingBookIds.Any())
+                lines.Add($"❌ Missing BookIds: {string.Join(", ", missingBookIds)}");
+
+            if (missingAuthorIds.Any())
+                lines.Add($"❌ Missing AuthorIds: {string.Join(", ", missingAuthorIds)}");
+
+            var message = "<div style='color: red;'>" + string.Join("<br>", lines) + "</div>";
+
+            return new ResultDTO<string>
             {
-                // สมมติ AuthorId เป็น Identity ให้ไม่กำหนด
-                // AuthorId = dto.AuthorId,
-                FirstName = dto.FirstName?.Trim() ?? string.Empty,
-                LastName = dto.LastName?.Trim() ?? string.Empty,
-                PenName = dto.PenName?.Trim() ?? string.Empty
+                Data = null,
+                Desc = message,
+                IsError = true,
+                StatusCode = 400,
+                ErrorMessage = "Validation failed: Some records not found in the database."
             };
-
-        private static bool UpdateAuthorIfChanged(Author author, BookAuthorRawDataDto dto)
-        {
-            var firstName = dto.FirstName?.Trim() ?? string.Empty;
-            var lastName = dto.LastName?.Trim() ?? string.Empty;
-            var penName = dto.PenName?.Trim() ?? string.Empty;
-
-            if (author.FirstName == firstName && author.LastName == lastName && author.PenName == penName)
-                return false;
-
-            author.FirstName = firstName;
-            author.LastName = lastName;
-            author.PenName = penName;
-            return true;
         }
 
-        private void UpsertBookAuthorLink(BookAuthorRawDataDto dto, List<BookAuthor> existingBookAuthors, UpsertCounters counters)
+        private ResultDTO<string> BuildSuccessResult(UpdateCounters counters)
         {
-            var exists = existingBookAuthors.Any(ba => ba.BookId == dto.BookId && ba.AuthorId == dto.AuthorId);
-            if (exists) return;
+            var message = $@"
+                <div style='color: #007bff;'>
+                    ✏️ Updated →
+                    <strong>Books:</strong> {counters.UpdatedBooks},
+                    <strong>Authors:</strong> {counters.UpdatedAuthors}
+                </div>";
 
-            _db.BookAuthors.Add(new BookAuthor { BookId = dto.BookId, AuthorId = dto.AuthorId });
-            existingBookAuthors.Add(new BookAuthor { BookId = dto.BookId, AuthorId = dto.AuthorId });
-            counters.CreatedBookAuthors++;
+            return new ResultDTO<string>
+            {
+                Data = "Raw data processed successfully.",
+                Desc = message,
+                IsError = false,
+                StatusCode = 200
+            };
         }
 
-        private static (string CreatedSummary, string UpdatedSummary) BuildSummary(UpsertCounters counters)
+        private class UpdateCounters
         {
-            var createdSummary = $@"
-            <div style='color: green;'>
-                <strong>✅ Created</strong> →
-                <span><strong>Books:</strong> {counters.CreatedBooks}, </span>
-                <span><strong>Authors:</strong> {counters.CreatedAuthors}, </span>
-                <span><strong>Links:</strong> {counters.CreatedBookAuthors}</span>
-            </div>";
-
-            var updatedSummary = $@"
-            <div style='color: #007bff;'>
-                <strong>✏️ Updated</strong> →
-                <span><strong>Books:</strong> {counters.UpdatedBooks}, </span>
-                <span><strong>Authors:</strong> {counters.UpdatedAuthors}</span>
-            </div>";
-
-            return (createdSummary, updatedSummary);
-        }
-
-        private class UpsertCounters
-        {
-            public int CreatedBooks { get; set; }
             public int UpdatedBooks { get; set; }
-            public int CreatedAuthors { get; set; }
             public int UpdatedAuthors { get; set; }
-            public int CreatedBookAuthors { get; set; }
         }
     }
 }

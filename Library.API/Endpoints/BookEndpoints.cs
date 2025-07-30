@@ -1,3 +1,4 @@
+using Library.API.DTOs.RawData;
 using Library.API.Features.Books;
 using Library.API.Features.RawData;
 using MediatR;
@@ -70,6 +71,17 @@ public static class BookEndpoints
             var result = await sender.Send(command);
             if (result.StatusCode != 200)
                 return Results.BadRequest(result.Desc);
+
+            return Results.Ok(result);
+        });
+        app.MapPost("/api/books/update-raw-data", async (
+             List<BookAuthorRawDataDto> request,
+            ISender sender) =>
+        {
+            var command = new UpsertRawDataListCmd(request);
+            var result = await sender.Send(command);
+            // if (result.StatusCode != 200)
+            //     return Results.BadRequest(result.Desc);
 
             return Results.Ok(result);
         });
