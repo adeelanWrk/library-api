@@ -24,9 +24,7 @@ namespace Library.API.Features.Authors
             {
                 var term = $"%{request.Term}%";
                 query = query.Where(a =>
-                    EF.Functions.Like(a.FirstName, term) ||
-                    EF.Functions.Like(a.LastName, term) ||
-                    (a.PenName != null && EF.Functions.Like(a.PenName, term))
+                    EF.Functions.Like(a.FirstName + " " + a.LastName + (a.PenName != null ? " " + a.PenName : ""), term)
                 );
             }
 

@@ -43,6 +43,7 @@ namespace Library.API.Features.Books
 
             var result = pagedBooks.Select((b, index) => new BookWithAuthorsDto
             {
+                Row = ((request.Parameters.Page - 1) * request.Parameters.PageSize) + index + 1,
                 BookId = b.BookId,
                 Title = b.Title ?? string.Empty,
                 Authors = b.BookAuthors.Select(ba => new AuthorsDto

@@ -96,9 +96,7 @@ namespace Library.API.Features.Books
             IQueryable<Book> query = _db.Books;
 
             if (authorId > 0)
-            {
                 query = query.Where(b => b.BookAuthors.Any(ba => ba.AuthorId == authorId));
-            }
 
             query = ApplySorting(query, sortBy, sortDirection);
 
