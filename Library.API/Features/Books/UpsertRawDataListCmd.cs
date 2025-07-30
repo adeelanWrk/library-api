@@ -16,6 +16,8 @@ namespace Library.API.Features.RawData
     public class UpsertRawDataListHandler : IRequestHandler<UpsertRawDataListCmd, ResultDTO<string>>
     {
         private readonly LibraryDbContext _db;
+        private readonly List<BookHistory> _bookHistories = new();
+        private readonly List<AuthorHistory> _authorHistories = new();
 
         public UpsertRawDataListHandler(LibraryDbContext db)
         {
@@ -44,7 +46,16 @@ namespace Library.API.Features.RawData
             if (missingBookIds.Any() || missingAuthorIds.Any())
                 return BuildValidationError(missingBookIds, missingAuthorIds);
 
-            var counters = UpdateEntities(validData, existingBooks, existingAuthors, now);
+            var bookDict = existingBooks.ToDictionary(b => b.BookId);
+            var authorDict = existingAuthors.ToDictionary(a => a.AuthorId);
+
+            var counters = UpdateEntitiesWithHistory(validData, bookDict, authorDict, now);
+
+            if (_bookHistories.Any())
+                _db.BooksHistory.AddRange(_bookHistories);
+
+            if (_authorHistories.Any())
+                _db.AuthorsHistory.AddRange(_authorHistories);
 
             await _db.SaveChangesAsync(cancellationToken);
 
@@ -54,32 +65,56 @@ namespace Library.API.Features.RawData
         private static List<BookAuthorRawDataDto> GetValidData(IEnumerable<BookAuthorRawDataDto> data) =>
             data.Where(d => d.BookId != 0 && d.AuthorId != 0).ToList();
 
-        private UpdateCounters UpdateEntities(
+        private UpdateCounters UpdateEntitiesWithHistory(
             IEnumerable<BookAuthorRawDataDto> data,
-            List<Book> books,
-            List<Author> authors,
+            Dictionary<int, Book> bookDict,
+            Dictionary<int, Author> authorDict,
             DateTime now)
         {
             var counters = new UpdateCounters();
 
             foreach (var dto in data)
             {
-                var book = books.FirstOrDefault(b => b.BookId == dto.BookId);
-                if (book != null)
+                if (bookDict.TryGetValue(dto.BookId, out var book))
                 {
+                    BackupBookToHistory(book);
                     UpdateBook(book, dto, now);
                     counters.UpdatedBooks++;
                 }
 
-                var author = authors.FirstOrDefault(a => a.AuthorId == dto.AuthorId);
-                if (author != null)
+                if (authorDict.TryGetValue(dto.AuthorId, out var author))
                 {
+                    BackupAuthorToHistory(author);
                     UpdateAuthor(author, dto, now);
                     counters.UpdatedAuthors++;
                 }
             }
 
             return counters;
+        }
+
+        private void BackupBookToHistory(Book book)
+        {
+            _bookHistories.Add(new BookHistory
+            {
+                BookId = book.BookId,
+                Title = book.Title,
+                Publisher = book.Publisher,
+                Price = book.Price,
+                UpdatedDate = book.UpdatedDate
+            });
+        }
+
+        private void BackupAuthorToHistory(Author author)
+        {
+            _authorHistories.Add(new AuthorHistory
+            {
+                AuthorId = author.AuthorId,
+                FirstName = author.FirstName,
+                LastName = author.LastName,
+                PenName = author.PenName,
+                UpdatedDate = author.UpdatedDate
+            });
         }
 
         private void UpdateBook(Book book, BookAuthorRawDataDto dto, DateTime updatedDate)

@@ -10,36 +10,36 @@ namespace Library.API.Data
 
         public DbSet<AuthorHistory> AuthorsHistory => Set<AuthorHistory>();
         public DbSet<BookHistory> BooksHistory => Set<BookHistory>();
-        public DbSet<BookAuthorHistory> BookAuthorsHistory => Set<BookAuthorHistory>();
+        // public DbSet<BookAuthorHistory> BookAuthorsHistory => Set<BookAuthorHistory>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 
             modelBuilder.Entity<Author>(entity =>
- {
-     entity.HasKey(a => a.AuthorId);
+                {
+                    entity.HasKey(a => a.AuthorId);
 
-     entity.Property(a => a.FirstName)
-         .IsRequired()
-         .HasMaxLength(60)
-         .IsUnicode(true);
+                    entity.Property(a => a.FirstName)
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .IsUnicode(true);
 
-     entity.Property(a => a.LastName)
-         .IsRequired()
-         .HasMaxLength(60)
-         .IsUnicode(true);
+                    entity.Property(a => a.LastName)
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .IsUnicode(true);
 
-     entity.Property(a => a.PenName)
-         .IsRequired()
-         .HasMaxLength(60)
-         .IsUnicode(true);
+                    entity.Property(a => a.PenName)
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .IsUnicode(true);
 
-     entity.HasIndex(a => a.FirstName).HasDatabaseName("IDX_Authors_FirstName");
-     entity.HasIndex(a => a.LastName).HasDatabaseName("IDX_Authors_LastName");
-     entity.HasIndex(a => a.PenName).HasDatabaseName("IDX_Authors_PenName");
+                    entity.HasIndex(a => a.FirstName).HasDatabaseName("IDX_Authors_FirstName");
+                    entity.HasIndex(a => a.LastName).HasDatabaseName("IDX_Authors_LastName");
+                    entity.HasIndex(a => a.PenName).HasDatabaseName("IDX_Authors_PenName");
 
-     entity.ToTable("Authors");
- });
+                    entity.ToTable("Authors");
+                });
 
             modelBuilder.Entity<Book>(entity =>
             {
@@ -81,8 +81,11 @@ namespace Library.API.Data
 
             modelBuilder.Entity<AuthorHistory>(entity =>
             {
-                entity.HasKey(e => e.AuthorId);
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id)
+                    .ValueGeneratedOnAdd();
 
+                entity.Property(e => e.AuthorId).IsRequired();
                 entity.Property(e => e.FirstName)
                     .IsRequired()
                     .HasMaxLength(60)
@@ -104,8 +107,11 @@ namespace Library.API.Data
 
             modelBuilder.Entity<BookHistory>(entity =>
             {
-                entity.HasKey(e => e.BookId);
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id)
+                    .ValueGeneratedOnAdd();
 
+                entity.Property(e => e.BookId).IsRequired();
                 entity.Property(e => e.Title)
                     .IsRequired()
                     .HasMaxLength(255)
@@ -121,14 +127,13 @@ namespace Library.API.Data
                 entity.Property(e => e.UpdatedDate)
                     .IsRequired(false);
             });
+            //  modelBuilder.Entity<BookAuthorHistory>(entity =>
+            // {
+            //     entity.HasKey(e => e.Id);
 
-            modelBuilder.Entity<BookAuthorHistory>(entity =>
-            {
-                entity.HasKey(e => new { e.BookId, e.AuthorId });
-
-                entity.Property(e => e.UpdatedDate)
-                    .IsRequired(false);
-            });
+            //     entity.Property(e => e.UpdatedDate)
+            //         .IsRequired(false);
+            // });
 
         }
     }
