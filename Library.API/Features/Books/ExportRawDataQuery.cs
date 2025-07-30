@@ -64,7 +64,7 @@ namespace Library.API.Features.RawData
                     PenName = ba.Author.PenName
                 })
                 .AsNoTracking()
-                .Take(1000)
+                // .Take(1000)
                 .ToListAsync(cancellationToken);
         }
     }

@@ -1,3 +1,4 @@
+using Library.API.DTOs.History;
 using Library.API.DTOs.RawData;
 using Library.API.Features.Books;
 using Library.API.Features.RawData;
@@ -83,6 +84,14 @@ public static class BookEndpoints
             // if (result.StatusCode != 200)
             //     return Results.BadRequest(result.Desc);
 
+            return Results.Ok(result);
+        });
+        app.MapPost("/api/books/history", async (
+            RequestParamHistoryDto request,
+            ISender sender) =>
+        {
+            var query = new GetBooksWithAuthorsHistoryQuery(request);
+            var result = await sender.Send(query);
             return Results.Ok(result);
         });
 
