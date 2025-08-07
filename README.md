@@ -1,18 +1,7 @@
 # 📚 Library.API – .NET 8 Back-End for Scalable Book Management
 
 ## 🏗️ โครงสร้างโปรเจกต์
-Library.API/
-├── Asset/ExcelTemplate # Excel Template สำหรับ Export/Import
-├── Common/ # Helper, Constants, และ Utilities ต่าง ๆ
-├── Data
-    ├── Seeder # การสร้างข้อมูลจำลอง (Seeder)
-    └── Migrations/ # EF Core Migration Files
-├── DTOs/ # Data Transfer Objects
-├── Endpoints/ # Minimal API Entry Points
-├── Features/
-│ ├── Authors/ # Command/Query + Handler ของ Authors
-│ └── Books/ # Command/Query + Handler ของ Books
-├── Models/ # Entity Models
+<pre> ```plaintext Library.API/ ├── Asset/ExcelTemplate # Excel Template สำหรับ Export/Import ├── Common/ # Helper, Constants, และ Utilities ต่าง ๆ ├── Data │ ├── Seeder # การสร้างข้อมูลจำลอง (Seeder) │ └── Migrations/ # EF Core Migration Files ├── DTOs/ # Data Transfer Objects ├── Endpoints/ # Minimal API Entry Points ├── Features/ │ ├── Authors/ # Command/Query + Handler ของ Authors │ └── Books/ # Command/Query + Handler ของ Books ├── Models/ # Entity Models ``` </pre>
 
 
 ---
