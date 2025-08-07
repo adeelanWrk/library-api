@@ -46,7 +46,7 @@ desktop.ini
 *.temp
 
 # Entity Framework Core Migrations folder (ถ้าคุณต้องการ ignore)
-Migrations/
+# Migrations/
 
 # Test results
 TestResults/
